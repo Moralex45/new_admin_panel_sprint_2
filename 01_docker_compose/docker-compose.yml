@@ -1,0 +1,42 @@
+version: "3.7"
+
+services:
+  db:
+    build: 
+      ./db
+    restart: always
+    ports:
+      - "${DB_PORT}:5432"
+    environment:
+      POSTGRES_PASSWORD: $DB_PASSWORD
+      POSTGRES_USER: $DB_USER
+      POSTGRES_DB: $DB_NAME
+    volumes:
+      - ../../postgresql/data:/var/lib/postgresql/data/
+  movies_app:
+    build: 
+      context: ./app
+      dockerfile: Dockerfile
+    expose:
+      - 8000
+    env_file:
+      - ./.env
+    volumes:
+      - web-static:/app/staticfiles
+    depends_on:
+      - db 
+  nginx:
+    build: 
+      context: ./nginx
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - web-static:/app/staticfiles
+    depends_on:
+      - movies_app
+      - db
+
+volumes:
+  web-static:
