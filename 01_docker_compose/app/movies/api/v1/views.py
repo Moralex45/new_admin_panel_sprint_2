@@ -12,24 +12,17 @@ class MoviesApiMixin:
     model = Filmwork
     http_method_names = ["get"]
 
+    @staticmethod
+    def _aggregate_person(role):
+        return ArrayAgg(
+            "persons__full_name",
+            filter=Q(personfilmwork__role=str(role)),
+            distinct=True
+        )
+
     def get_queryset(self):
         genres_list = ArrayAgg(
             "genres__name",
-            distinct=True,
-        )
-        actors_list = ArrayAgg(
-            "persons__full_name",
-            filter=Q(personfilmwork__role=RoleType.ACTOR),
-            distinct=True,
-        )
-        directors_list = ArrayAgg(
-            "persons__full_name",
-            filter=Q(personfilmwork__role=RoleType.DIRECTOR),
-            distinct=True,
-        )
-        writers_list = ArrayAgg(
-            "persons__full_name",
-            filter=Q(personfilmwork__role=RoleType.WRITER),
             distinct=True,
         )
         films = (
@@ -44,10 +37,10 @@ class MoviesApiMixin:
                 "type",
             )
             .annotate(
-                genres=genres_list,
-                actors=actors_list,
-                directors=directors_list,
-                writers=writers_list,
+                genres = genres_list,
+                actors = MoviesApiMixin._aggregate_person(RoleType.ACTOR),
+                directors = MoviesApiMixin._aggregate_person(RoleType.DIRECTOR),
+                writers = MoviesApiMixin._aggregate_person(RoleType.WRITER),
             )
         )
         return films
@@ -71,24 +64,11 @@ class MoviesListApi(MoviesApiMixin, BaseListView):
             "total_pages": paginator.num_pages,
             "prev": page.previous_page_number() if page.has_previous() else None,
             "next": page.next_page_number() if page.has_next() else None,
-            "results": list(
-                queryset.values(
-                    "id",
-                    "title",
-                    "description",
-                    "creation_date",
-                    "rating",
-                    "type",
-                    "genres",
-                    "actors",
-                    "directors",
-                    "writers",
-                )
-            ),
+            "results": list(page.object_list),
         }
         return context
 
 
 class MoviesDetailApi(MoviesApiMixin, BaseDetailView):
-    def get_context_data(self, *, object_list=None, **kwargs):
+    def get_context_data(self,  **kwargs):
         return kwargs.get("object")
